@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: CPT Marquee Shortcode
- * Description: Display custom post type titles in a horizontal marquee or vertical list, with options for limit, speed, direction, separator, prefix, and links.
- * Version: 1.3
+ * Description: Display custom post type content in a horizontal marquee or vertical list, with options for title toggle, content type (full/excerpt/none), limit, speed, direction, separator, prefix, and more.
+ * Version: 1.4
  * Author: MD. Asraful Islam
  * Author URI: https://www.asraful.com.bd/
  * License: GPL2
@@ -12,21 +12,28 @@
  * Requires at least: 5.0
  * Requires PHP: 7.0
  * WP tested up to: 6.8.1
- * GitHub Plugin URI: https://github.com/AsrafulDev/cpt-marquee-shortcode
  */
 
 if (!defined('ABSPATH')) exit;
 
-// Register the shortcode
+/**
+ * =======================================================
+ * SHORTCODE FUNCTION
+ * =======================================================
+ */
 function cpt_title_marquee_shortcode($atts) {
     $atts = shortcode_atts(array(
-        'post_type' => 'post',
-        'limit'     => 5,
-        'speed'     => 5,
-        'direction' => 'left',
-        'separator' => ' | ',
-        'prefix'    => '',
-        'list_type' => 'horizontal', // NEW: list_type
+        'post_type'    => 'post',
+        'limit'        => 5,
+        'speed'        => 5,
+        'direction'    => 'left',
+        'separator'    => ' | ',
+        'prefix'       => '',
+        'list_type'    => 'horizontal',
+        'show_title'   => 'true',
+		'title_bold'  => 'true',
+        'title_sep'   => ' : ',
+        'content_type' => 'none',
     ), $atts, 'cpt_marquee');
 
     $query = new WP_Query(array(
@@ -39,30 +46,79 @@ function cpt_title_marquee_shortcode($atts) {
 
     ob_start();
 
-    // Horizontal marquee output
+    // HORIZONTAL MARQUEE
     if ($atts['list_type'] === 'horizontal') {
-        echo '<marquee direction="' . esc_attr($atts['direction']) . '" scrollamount="' . intval($atts['speed']) . '" onmouseover="this.stop();" onmouseout="this.start();">';
+        echo '<marquee direction="' . esc_attr($atts['direction']) . '" scrollamount="' . intval($atts['speed']) . '" onmouseover="this.stop();" onmouseout="this.start();" style="white-space:nowrap;">';
+
         $items = [];
         while ($query->have_posts()) {
             $query->the_post();
-            $title = esc_html(get_the_title());
-            $link = esc_url(get_permalink());
-            $prefix = esc_html($atts['prefix']);
-            $items[] = "<a href='{$link}' style='text-decoration:none;' target='_blank'>{$prefix}{$title}</a>";
+
+            $title   = esc_html(get_the_title());
+            $link    = esc_url(get_permalink());
+            $prefix  = esc_html($atts['prefix']);
+			
+			$title_html = '';
+			if ( $atts['show_title'] === 'true' ) {
+				$title_text = get_the_title();
+				if ( $atts['title_bold'] === 'true' ) {
+					$title_text = '<strong>' . esc_html( $title_text ) . '</strong>';
+				} else {
+					$title_text = esc_html( $title_text );
+				}
+				$title_html = $title_text . esc_html( $atts['title_sep'] );
+			}
+            // Content handling
+            $content_html = '';
+            if ($atts['content_type'] === 'full') {
+                $content_html = ' ' . wp_strip_all_tags(get_the_content());
+            } elseif ($atts['content_type'] === 'excerpt') {
+                $content_html = ' ' . wp_strip_all_tags(get_the_excerpt());
+            }
+
+            // Conditional title
+            $display = ($atts['show_title'] === 'true') ? "{$prefix}{$title_html}" : '';
+
+            $items[] = "<a href='{$link}' style='text-decoration:none; margin-right:10px;' target='_blank'>{$display}{$content_html}</a>";
         }
+
         echo implode(esc_html($atts['separator']), $items);
         echo '</marquee>';
     }
 
-    // Vertical list output
+    // VERTICAL LIST
     else {
         echo '<ul class="cpt-marquee-vertical-list">';
         while ($query->have_posts()) {
             $query->the_post();
-            $title = esc_html(get_the_title());
-            $link = esc_url(get_permalink());
-            $prefix = esc_html($atts['prefix']);
-            echo "<li><a href='{$link}' target='_blank'>{$prefix}{$title}</a></li>";
+
+            $title   = esc_html(get_the_title());
+            $link    = esc_url(get_permalink());
+            $prefix  = esc_html($atts['prefix']);
+			
+			$title_html = '';
+			if ( $atts['show_title'] === 'true' ) {
+				$title_text = get_the_title();
+				if ( $atts['title_bold'] === 'true' ) {
+					$title_text = '<strong>' . esc_html( $title_text ) . '</strong>';
+				} else {
+					$title_text = esc_html( $title_text );
+				}
+				$title_html = $title_text . esc_html( $atts['title_sep'] );
+			}
+			
+            $content_html = '';
+            if ($atts['content_type'] === 'full') {
+                $content_html = '<div class="cpt-content">' . wp_strip_all_tags(get_the_content()) . '</div>';
+            } elseif ($atts['content_type'] === 'excerpt') {
+                $content_html = '<div class="cpt-content">' . wp_strip_all_tags(get_the_excerpt()) . '</div>';
+            }
+
+            echo "<li><a href='{$link}' target='_blank'>";
+            if ($atts['show_title'] === 'true') {
+                echo "{$prefix}{$title_html}";
+            }
+            echo "</a> {$content_html}</li>";
         }
         echo '</ul>';
         ?>
@@ -73,7 +129,13 @@ function cpt_title_marquee_shortcode($atts) {
             margin: 0;
         }
         .cpt-marquee-vertical-list li {
-            margin: 5px 0;
+            margin: 8px 0;
+        }
+        .cpt-content {
+            font-size: 14px;
+            display: block;
+            margin-top: 4px;
+            color: #555;
         }
         </style>
         <?php
@@ -84,7 +146,11 @@ function cpt_title_marquee_shortcode($atts) {
 }
 add_shortcode('cpt_marquee', 'cpt_title_marquee_shortcode');
 
-// Admin menu
+/**
+ * =======================================================
+ * ADMIN MENU + SHORTCODE GENERATOR
+ * =======================================================
+ */
 function cpt_marquee_add_admin_menu() {
     add_options_page(
         'CPT Marquee Shortcode Generator',
@@ -96,7 +162,9 @@ function cpt_marquee_add_admin_menu() {
 }
 add_action('admin_menu', 'cpt_marquee_add_admin_menu');
 
-// Admin page UI
+/**
+ * ADMIN PAGE UI
+ */
 function cpt_marquee_admin_page() {
     ?>
     <div class="wrap">
@@ -116,14 +184,17 @@ function cpt_marquee_admin_page() {
                         </select>
                     </td>
                 </tr>
+
                 <tr>
                     <th><label for="limit">Limit</label></th>
                     <td><input type="number" id="limit" value="5" min="1" /></td>
                 </tr>
+
                 <tr>
                     <th><label for="speed">Speed</label></th>
                     <td><input type="number" id="speed" value="5" min="1" /></td>
                 </tr>
+
                 <tr>
                     <th><label for="direction">Direction</label></th>
                     <td>
@@ -135,14 +206,17 @@ function cpt_marquee_admin_page() {
                         </select>
                     </td>
                 </tr>
+
                 <tr>
                     <th><label for="separator">Separator</label></th>
                     <td><input type="text" id="separator" value=" | " /></td>
                 </tr>
+
                 <tr>
                     <th><label for="prefix">Item Prefix</label></th>
                     <td><input type="text" id="prefix" value="→ " /></td>
                 </tr>
+
                 <tr>
                     <th><label for="list_type">List Type</label></th>
                     <td>
@@ -152,7 +226,42 @@ function cpt_marquee_admin_page() {
                         </select>
                     </td>
                 </tr>
+
+                <!-- NEW OPTIONS -->
+                <tr>
+                    <th><label for="show_title">Show Title</label></th>
+                    <td>
+                        <select id="show_title">
+                            <option value="true">Show</option>
+                            <option value="false">Hide</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="bold_title">Show Title</label></th>
+                    <td>
+                        <select id="bold_title">
+                            <option value="true">Bold</option>
+                            <option value="false">Regular</option>
+                        </select>
+                    </td>
+                </tr>
+				<tr>
+                    <th><label for="serfix">Title Serfix</label></th>
+                    <td><input type="text" id="serfix" value=" : " /></td>
+                </tr>
+                <tr>
+                    <th><label for="content_type">Content Type</label></th>
+                    <td>
+                        <select id="content_type">
+                            <option value="none">No Content</option>
+                            <option value="excerpt">Excerpt</option>
+                            <option value="full">Full Content</option>
+                        </select>
+                    </td>
+                </tr>
             </table>
+
             <p><button type="button" class="button button-primary" onclick="generateShortcode()">Generate Shortcode</button></p>
         </form>
 
@@ -169,8 +278,12 @@ function cpt_marquee_admin_page() {
             const separator = document.getElementById('separator').value;
             const prefix = document.getElementById('prefix').value;
             const listType = document.getElementById('list_type').value;
+            const showTitle = document.getElementById('show_title').value;
+            const boldTitle = document.getElementById('bold_title').value;
+            const serfix = document.getElementById('serfix').value;
+            const contentType = document.getElementById('content_type').value;
 
-            const shortcode = `[cpt_marquee post_type="${postType}" limit="${limit}" speed="${speed}" direction="${direction}" separator="${separator.replace(/"/g, '&quot;')}" prefix="${prefix.replace(/"/g, '&quot;')}" list_type="${listType}"]`;
+            const shortcode = `[cpt_marquee post_type="${postType}" limit="${limit}" speed="${speed}" direction="${direction}" separator="${separator.replace(/"/g, '&quot;')}" prefix="${prefix.replace(/"/g, '&quot;')}" list_type="${listType}" show_title="${showTitle}" title_bold="${boldTitle}" title_sep="${serfix.replace(/"/g, '&quot;')}" content_type="${contentType}"]`;
             document.getElementById('generated-shortcode').value = shortcode;
         }
     </script>
